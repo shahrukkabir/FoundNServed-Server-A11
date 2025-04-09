@@ -74,6 +74,24 @@ async function run() {
       res.send(result);
     });
 
+    // Get my items by email
+    app.get("/myItems", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
+
+      const result = await itemsCollection.find({ "contactInfo.email": email }).toArray();
+      res.send(result);
+    });
+
+    // Get recovered items by email
+    app.get("/recovered", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
+
+      const result = await recoveredCollection.find({ "recoveredBy.email": email }).toArray();
+      res.send(result);
+    });
+
     console.log("MongoDB connected!");
   } finally {}
 }
