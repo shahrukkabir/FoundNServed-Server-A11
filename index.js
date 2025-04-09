@@ -1,13 +1,13 @@
 const express = require("express");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
-const cookieParser = require("cookie-parser");
-require("dotenv").config();
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const app = express();
+require("dotenv").config();
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000;
 
+// Middleware
 app.use(cors({
   origin: [
     "http://localhost:5173",
@@ -21,10 +21,13 @@ app.use(cookieParser());
 
 const verifyToken = (req, res, next) => {
   const token = req?.cookies?.token;
-  if (!token) return res.status(401).send({ message: "Unauthorized" });
-
+  if (!token) {
+    return res.status(401).send({ message: 'Unauthorized' });
+  }
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).send({ message: "Unauthorized" });
+    if (err) {
+      return res.status(401).send({ message: 'Unauthorized' });
+    }
     req.user = decoded;
     next();
   });
@@ -45,6 +48,7 @@ async function run() {
     const itemsCollection = client.db("WhereIsIt").collection("items");
     const recoveredCollection = client.db("WhereIsIt").collection("recovered");
 
+    // Auth Related APIs
     app.post('/jwt', async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '12h' });
@@ -67,42 +71,43 @@ async function run() {
         .send({ message: 'Success' });
     });
 
+    // Get all Items
     app.get("/items", async (req, res) => {
       const cursor = itemsCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
 
+    app.delete('/items/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await itemsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // Get some Items using email (My Items)
     app.get("/myItems", verifyToken, async (req, res) => {
       const email = req.query.email;
-      if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
-
-      const result = await itemsCollection.find({ "contactInfo.email": email }).toArray();
+      const query = { "contactInfo.email": email };
+      if (req.user.email !== req.query.email) {
+        return res.status(403).send({ message: 'Forbidden Access' });
+      }
+      const result = await itemsCollection.find(query).toArray();
       res.send(result);
     });
 
+    // Get some Items using email (My recovered Items)
     app.get("/recovered", verifyToken, async (req, res) => {
       const email = req.query.email;
-      if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
-
-      const result = await recoveredCollection.find({ "recoveredBy.email": email }).toArray();
+      const query = { "recoveredBy.email": email };
+      if (req.user.email !== req.query.email) {
+        return res.status(403).send({ message: 'Forbidden Access' });
+      }
+      const result = await recoveredCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.post("/items", async (req, res) => {
-      const newItem = req.body;
-      const result = await itemsCollection.insertOne(newItem);
-      res.send(result);
-    });
-
-    // Create recovered item
-    app.post("/recovered", async (req, res) => {
-      const recoveryInfo = req.body;
-      const result = await recoveredCollection.insertOne(recoveryInfo);
-      res.send(result);
-    });
-
-    // Get single item by ID
+    // Get a single Item by ID
     app.get("/items/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -110,7 +115,7 @@ async function run() {
       res.send(result);
     });
 
-    // Update item by ID
+    // Get a single Item by ID Updated
     app.put("/items/:id", async (req, res) => {
       const id = req.params.id;
       const updateItem = req.body;
@@ -119,7 +124,9 @@ async function run() {
 
       try {
         const existingItem = await itemsCollection.findOne(filter);
-        if (!existingItem) return res.status(404).send({ message: "Item not found" });
+        if (!existingItem) {
+          return res.status(404).send({ message: "Item not found" });
+        }
 
         const updatedItem = {
           ...existingItem,
@@ -129,12 +136,29 @@ async function run() {
         const result = await itemsCollection.updateOne(filter, { $set: updatedItem }, option);
         res.send(result);
       } catch (error) {
+        console.error(error);
         res.status(500).send({ message: "Failed to update item" });
       }
     });
 
-    console.log("MongoDB connected!");
-  } finally {}
+    // Create a new item
+    app.post("/items", async (req, res) => {
+      const newItem = req.body;
+      const result = await itemsCollection.insertOne(newItem);
+      res.send(result);
+    });
+
+    // Create a recovered item
+    app.post("/recovered", async (req, res) => {
+      const recoveryInfo = req.body;
+      const result = await recoveredCollection.insertOne(recoveryInfo);
+      res.send(result);
+    });
+
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    // Ensures that the client will close when you finish/error
+  }
 }
 run().catch(console.dir);
 
