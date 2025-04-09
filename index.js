@@ -67,14 +67,12 @@ async function run() {
         .send({ message: 'Success' });
     });
 
-    // Get all items
     app.get("/items", async (req, res) => {
       const cursor = itemsCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
 
-    // Get my items by email
     app.get("/myItems", verifyToken, async (req, res) => {
       const email = req.query.email;
       if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
@@ -83,13 +81,43 @@ async function run() {
       res.send(result);
     });
 
-    // Get recovered items by email
     app.get("/recovered", verifyToken, async (req, res) => {
       const email = req.query.email;
       if (req.user.email !== email) return res.status(403).send({ message: 'Forbidden Access' });
 
       const result = await recoveredCollection.find({ "recoveredBy.email": email }).toArray();
       res.send(result);
+    });
+
+    // Get single item by ID
+    app.get("/items/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await itemsCollection.findOne(query);
+      res.send(result);
+    });
+
+    // Update item by ID
+    app.put("/items/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateItem = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const option = { upsert: true };
+
+      try {
+        const existingItem = await itemsCollection.findOne(filter);
+        if (!existingItem) return res.status(404).send({ message: "Item not found" });
+
+        const updatedItem = {
+          ...existingItem,
+          ...updateItem,
+        };
+
+        const result = await itemsCollection.updateOne(filter, { $set: updatedItem }, option);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update item" });
+      }
     });
 
     console.log("MongoDB connected!");
