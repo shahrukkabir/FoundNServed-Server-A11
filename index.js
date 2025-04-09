@@ -3,7 +3,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -42,6 +42,9 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+    const itemsCollection = client.db("WhereIsIt").collection("items");
+    const recoveredCollection = client.db("WhereIsIt").collection("recovered");
+
     app.post('/jwt', async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '12h' });
@@ -53,7 +56,7 @@ async function run() {
         })
         .send({ message: 'Success' });
     });
-    
+
     app.post('/logout', async (req, res) => {
       res
         .clearCookie('token', {
@@ -63,6 +66,14 @@ async function run() {
         })
         .send({ message: 'Success' });
     });
+
+    // Get all items
+    app.get("/items", async (req, res) => {
+      const cursor = itemsCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     console.log("MongoDB connected!");
   } finally {}
 }
