@@ -89,6 +89,19 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/items", async (req, res) => {
+      const newItem = req.body;
+      const result = await itemsCollection.insertOne(newItem);
+      res.send(result);
+    });
+
+    // Create recovered item
+    app.post("/recovered", async (req, res) => {
+      const recoveryInfo = req.body;
+      const result = await recoveredCollection.insertOne(recoveryInfo);
+      res.send(result);
+    });
+
     // Get single item by ID
     app.get("/items/:id", async (req, res) => {
       const id = req.params.id;
